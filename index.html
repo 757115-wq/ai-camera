@@ -52,7 +52,6 @@
     #webcam-container { display: flex; justify-content: center; align-items: center; min-height: 50vh; position: relative; margin-top: 20px; }
     #webcam-container video { max-width: 90%; height: auto; border-radius: 15px; border: 4px solid #333; }
 
-    /* 📊 メーターの文字サイズを固定 */
     #sensor-data {
       position: fixed; top: 15px; right: 15px; font-size: 13px; color: #fff;
       background: rgba(0, 0, 0, 0.85); padding: 12px 18px; border-radius: 10px;
@@ -61,11 +60,25 @@
     }
     #sensor-data div { color: #fff; font-size: 13px; }
 
+    /* 🚥 【修正ポイント】警告ボックスの文字サイズと余白をスマホ用に最適化 */
     #warning-message {
-      display: none; font-size: 45px; color: white; font-weight: bold; padding: 25px 45px;
-      border-radius: 25px; white-space: pre-line; position: fixed; top: 50%; left: 50%;
-      transform: translate(-50%, -50%); z-index: 90; text-align: center;
-      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+      display: none; 
+      font-size: 28px;           /* 45pxから28pxに縮小し、はみ出しを防止 */
+      line-height: 1.4;          /* 2行になったときの行間を綺麗に調整 */
+      color: white; 
+      font-weight: bold; 
+      padding: 20px 30px;        /* 上下左右の余白をすっきりサイズに調整 */
+      width: 75%;                /* 横幅が広がりすぎないように画面の75%に固定 */
+      max-width: 340px;          /* 横幅の最大サイズを固定 */
+      border-radius: 25px; 
+      white-space: pre-line; 
+      position: fixed; 
+      top: 50%; 
+      left: 50%;
+      transform: translate(-50%, -50%); 
+      z-index: 90; 
+      text-align: center;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.25);
       background-image: linear-gradient(135deg, #555 0%, #333 100%);
       transition: all 0.3s ease;
     }
@@ -92,23 +105,24 @@
     </div>
 
     <div id="image-container">
-      <img id="character-image" src="キャラ.PNG" alt="表示できません" class="roadmap-img">
+      <img id="character-image" src="キャラ.png" alt="表示できません" class="roadmap-img">
     </div>
 
     <button id="start-button" type="button" onclick="startSystem()">Tap to Start</button>
   </div>
 
-  <div id="webcam-container"></div>
+  <div class="container-center">
+    <div id="webcam-container"></div>
+  </div>
   <div id="warning-message">監視中...</div>
 
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 
   <script type="text/javascript">
-    // ★★★ 生徒が変更・調整すべき設定値 ★★★
     const URL = "https://teachablemachine.withgoogle.com/models/TT6HbJeSc/"; 
-    const THRESHOLD_AI = 0.85;    // AIが「止まれ」と確信する確率（85%）
-    const THRESHOLD_SPEED = 0.5;  // 自転車が「止まった」とみなす揺れの小ささ（外で要調整！）
+    const THRESHOLD_AI = 0.85;    
+    const THRESHOLD_SPEED = 0.5;  
 
     let isSignVisible = false;      
     let hasStopped = false;         
@@ -199,7 +213,6 @@
     async function predict() {
         const prediction = await model.predict(webcam.canvas);
         
-        // 🔍 【修正ポイント】クラス名「止まれ」の確率をしっかりと探すように変更
         let stopProb = 0;
         for (let i = 0; i < maxPredictions; i++) {
             if (prediction[i].className === "止まれ") {
@@ -232,7 +245,7 @@
             document.getElementById("flag-visible").innerText = "false";
             
             if (hasStopped === false) {
-                // ❌ 止まらずにスルーした
+                // ❌ 一時不停止
                 document.body.style.backgroundColor = "#ffcccc"; 
                 warningBox.innerText = "一時不停止です！！\n危険！";
                 warningBox.style.backgroundImage = "linear-gradient(135deg, #FF6B6B 0%, #FF3B30 100%)";
