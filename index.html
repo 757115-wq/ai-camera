@@ -215,7 +215,8 @@
         
         let stopProb = 0;
         for (let i = 0; i < maxPredictions; i++) {
-            if (prediction[i].className === "止まれ") {
+            // 文字が含まれているか調べる「includes」に変えて、「Class 1」にも対応させます！
+            if (prediction[i].className.includes("止まれ") || prediction[i].className.includes("Class 1")) {
                 stopProb = prediction[i].probability;
             }
         }
