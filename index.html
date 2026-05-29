@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    /* （ツムツム風デザインのCSSはそのまま完璧にキープしています） */
+    body {
+      background-color: #f7f9fa;
+      background-image: radial-gradient(circle at center, #ffffff 0%, #eef1f2 100%);
+      margin: 0;
+      padding: 0;
+      font-family: 'Arial Black', 'Impact', 'Hiragino Kaku Gothic StdN', sans-serif;
+      text-align: center;
+      overflow-x: hidden;
+    }
+
+    #help-button {
+      position: fixed; top: 20px; left: 20px; font-size: 16px; color: #999; background: white;
+      border: 2px solid #ddd; padding: 6px 22px; border-radius: 20px; font-weight: bold;
+      cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.03); transition: all 0.2s; z-index: 10;
+    }
+    #help-button:hover { background: #f5f5f5; }
+
+    .main-container { padding-top: 60px; display: flex; flex-direction: column; align-items: center; }
+
+    #title-container { margin-bottom: 25px; line-height: 1.1; }
+    .logo-char {
+      display: inline-block; font-size: 55px; font-weight: 900; letter-spacing: -2px;
+      text-shadow: 3px 3px 0 #222, -3px 3px 0 #222, 3px -3px 0 #222, -3px -3px 0 #222,
+                   3px 0px 0 #222, -3px 0px 0 #222, 0px 3px 0 #222, 0px -3px 0 #222,
+                   5px 8px 0 rgba(0, 0, 0, 0.15); margin: 0 2px;
+    }
+    .char-b { color: #4DA6FF; transform: rotate(-5deg); }
+    .char-p { color: #FF6B6B; transform: rotate(5deg); }
+    .char-y { color: #FAD02E; transform: rotate(-3deg); }
+    .char-g { color: #2ECC71; transform: rotate(4deg); }
+    .sub-title { font-size: 18px; color: #444; font-weight: bold; margin-top: 8px; letter-spacing: 2px; text-transform: uppercase; }
+
+    #image-container { max-width: 90%; margin: 0 auto 25px auto; }
+    .roadmap-img { max-width: 85%; height: auto; border-radius: 20px; }
+
+    #start-button {
+      color: #333; font-size: 24px; background-image: linear-gradient(to bottom, #FFE169 0%, #FAD02E 100%);
+      padding: 12px 40px; border-radius: 35px; border: 1px solid #E6B800;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15), inset 0 3px 6px rgba(255, 255, 255, 0.6), inset 0 -5px 8px rgba(0, 0, 0, 0.1);
+      font-weight: bold; cursor: pointer; transition: all 0.15s ease;
+    }
+    #start-button:active { transform: translateY(3px); box-shadow: 0 5px 10px rgba(0, 0, 0, 0.15), inset 0 1px 3px rgba(255, 255, 255, 0.4); }
+
+    #webcam-container { display: flex; justify-content: center; align-items: center; min-height: 60vh; position: relative; }
+    #webcam-container video { max-width: 90%; height: auto; border-radius: 15px; border: 4px solid #333; }
+
+    #sensor-data {
+      position: fixed; top: 20px; right: 20px; font-size: 18px; color: #fff;
+      background: rgba(0, 0, 0, 0.7); padding: 10px 20px; border-radius: 10px;
+      font-family: monospace; font-weight: bold; z-index: 10; display: none;
+    }
+
+    #warning-message {
+      display: none; font-size: 60px; color: white; font-weight: bold; padding: 20px 40px;
+      border-radius: 15px; white-space: nowrap; position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%); z-index: 100; text-align: center;
+      transition: background-image 0.3s ease;
+    }
+  </style>
+</head>
+<body>
+
+  <button id="help-button" onclick="showHelp()">ヘルプ</button>
+  <div id="sensor-data">揺れ: 0.00</div>
+
+  <div class="main-container">
+    <div id="title-container">
+      <span class="logo-char char-b">S</span>
+      <span class="logo-char char-p">T</span>
+      <span class="logo-char char-y">O</span>
+      <span class="logo-char char-g">P</span>
+      <div class="sub-title">Detection System</div>
+    </div>
+
+    <div id="image-container">
+      <img id="character-image" src="キャラ.PNG" alt="表示できません" class="roadmap-img">
+    </div>
+
+    <button id="start-button" type="button" onclick="init()">Tap to Start</button>
+  </div>
+
+  <div id="webcam-container"></div>
+  <div id="warning-message">Stop！</div>
+  <div id="label-container"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+  <script type="text/javascript">
+    const URL = "https://teachablemachine.withgoogle.com/models/ewiDcvWcc/";
+    let model, webcam, labelContainer, maxPredictions;
+
+    let audioCtx = null;
+    let hasPlayedSound = false;    // 警告（一時不停止）用のメモ帳
+    let hasPlayedVoice = false;    // 合格（安全です）用のメモ帳
+
+    let currentAccel = 0; 
+    const STOP_THRESHOLD = 1.5; // 自転車が止まったと判定する揺れの基準値
+
+    function showHelp() {
+      alert("【使い方】\n\n1. 「Tap to Start」を押します。\n2. 自転車にスマホをセットします。\n3. 標識を見つけたのに止まらないと「一時不停止です」と警告され、完全に停止すると「安全です」とお知らせします！");
+    }
+
+    async function init() {
+      if (typeof DeviceMotionEvent.requestPermission === 'function') {
+        try {
+            const permissionState = await DeviceMotionEvent.requestPermission();
+            if (permissionState === 'granted') {
+                window.addEventListener('devicemotion', handleMotion);
+            } else {
+                alert("センサーの使用が許可されませんでした。揺れ検知は機能しません。");
+            }
+        } catch (error) {
+            console.error(error);
+        }
+      } else {
+        window.addEventListener('devicemotion', handleMotion);
+      }
+
+      document.getElementById("title-container").style.display = "none";
+      document.getElementById("image-container").style.display = "none";
+      document.getElementById("start-button").style.display = "none";
+      document.getElementById("help-button").style.display = "none";
+      document.getElementById("sensor-data").style.display = "block";
+
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+      const modelURL = URL + "model.json";
+      const metadataURL = URL + "metadata.json";
+
+      model = await tmImage.load(modelURL, metadataURL);
+      maxPredictions = model.getTotalClasses();
+
+      const flip = false;
+      webcam = new tmImage.Webcam(500, 500, flip);
+      await webcam.setup({ facingMode: "environment" }); 
+      await webcam.play();
+      window.requestAnimationFrame(loop);
+
+      document.getElementById("webcam-container").appendChild(webcam.canvas);
+      labelContainer = document.getElementById("label-container");
+      for (let i = 0; i < maxPredictions; i++) { 
+          labelContainer.appendChild(document.createElement("div"));
+      }
+    }
+
+    function handleMotion(event) {
+        let x = event.acceleration.x || 0;
+        let y = event.acceleration.y || 0;
+        let z = event.acceleration.z || 0;
+        currentAccel = Math.sqrt(x*x + y*y + z*z);
+        document.getElementById('sensor-data').innerText = "揺れ: " + currentAccel.toFixed(2);
+    }
+
+    async function loop() {
+        webcam.update(); 
+        await predict();
+        window.requestAnimationFrame(loop);
+    }
+
+    async function predict() {
+        const prediction = await model.predict(webcam.canvas);
+        let isStopDetected = false; 
+
+        for (let i = 0; i < maxPredictions; i++) {
+            if (prediction[i].className === "止まれ" && prediction[i].probability > 0.8) {
+                isStopDetected = true; 
+            }
+        }
+
+        const warningBox = document.getElementById("warning-message");
+
+        if (isStopDetected === true) {
+            warningBox.style.display = "block";
+            
+            // 【合格判定】もし揺れが基準値より小さかったら＝ちゃんと止まった！
+            if (currentAccel < STOP_THRESHOLD) {
+                warningBox.innerText = "合格✨\n安全確認よし！";
+                warningBox.style.backgroundImage = "linear-gradient(135deg, #2ECC71 0%, #27AE60 100%)";
+                warningBox.style.boxShadow = "0 15px 35px rgba(46, 204, 113, 0.4)";
+                
+                // まだ音声を流していなければ、1回だけ「安全です」と喋る
+                if (hasPlayedVoice === false) {
+                    playVoiceSound("安全です。左右を確認してください。");
+                    hasPlayedVoice = true; 
+                }
+
+                hasPlayedSound = false; // 次にまた動いた時に警告音が鳴るようにリセット
+            } 
+            // 【警告判定】揺れが大きい＝標識があるのにまだ動いている！
+            else {
+                warningBox.innerText = "ブレーキ！\n止まれ！";
+                warningBox.style.backgroundImage = "linear-gradient(135deg, #FF6B6B 0%, #FF3B30 100%)";
+                warningBox.style.boxShadow = "0 15px 35px rgba(255, 0, 0, 0.4)";
+                
+                // ★新機能：まだ警告を流していなければ、1回だけ「一時不停止です」と怒る
+                if (hasPlayedSound === false) {
+                    playAlertSound(); // ピピッという効果音
+                    playVoiceSound("一時不停止です。止まってください。"); // 声の警告
+                    hasPlayedSound = true; 
+                }
+
+                hasPlayedVoice = false; // 次にまた止まった時に喋るようにリセット
+            }
+        } else {
+            warningBox.style.display = "none";
+            hasPlayedSound = false; 
+            hasPlayedVoice = false; 
+        }
+    }
+
+    function playAlertSound() {
+        if (!audioCtx) return;
+        const frequency = 880;
+
+        let osc1 = audioCtx.createOscillator();
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+        osc1.connect(audioCtx.destination);
+        osc1.start(audioCtx.currentTime);
+        osc1.stop(audioCtx.currentTime + 0.1);
+
+        let osc2 = audioCtx.createOscillator();
+        osc2.type = 'sine';
+        osc2.frequency.setValueAtTime(frequency, audioCtx.currentTime + 0.15);
+        osc2.connect(audioCtx.destination);
+        osc2.start(audioCtx.currentTime + 0.15);
+        osc2.stop(audioCtx.currentTime + 0.25);
+    }
+
+    // スマホの標準機能を使って日本語を喋らせる関数
+    function playVoiceSound(message) {
+        if (!window.speechSynthesis) return;
+
+        // 音声が重ならないように一度リセットする
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(message);
+        utterance.lang = "ja-JP"; 
+        utterance.rate = 1.25;    // 少しだけ早口にして、警告の緊迫感を出しています
+        utterance.pitch = 1.0;    
+
+        window.speechSynthesis.speak(utterance);
+    }
+</script>
+</body>
+</html>
