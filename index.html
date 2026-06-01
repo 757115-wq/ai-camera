@@ -265,7 +265,7 @@
     </div>
 
     <div id="image-container">
-      <img id="character-image" src="キャラ.png" alt="表示できません" class="roadmap-img">
+      <img id="character-image" src="キャラ.PNG" alt="表示できません" class="roadmap-img">
     </div>
 
     <button id="start-button" type="button" onclick="startSystem()">Tap to Start</button>
@@ -276,7 +276,8 @@
   </div>
 
   <div id="warning-message">監視中...</div>
-  <div id="mini-message">走行中にスマホ画面を見ないでください。音声案内を中心に使用してください。</div>
+  <div id="mini-message">走行中にスマホ画面を見ないでください。</div>
+  <div id="mini-message">音声案内を中心に使用してください。</div>
 
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
@@ -301,7 +302,7 @@
     const THRESHOLD_GPS_SPEED = 0.5;
 
     // 何秒間、停止状態が続いたら「停止確認」にするか
-    const STOP_REQUIRED_TIME = 1000;
+    const STOP_REQUIRED_TIME = 600;
 
     // 何フレーム連続で標識を見失ったら「通過」と判断するか
     const LOST_LIMIT = 10;
