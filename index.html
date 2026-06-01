@@ -265,7 +265,7 @@
     </div>
 
     <div id="image-container">
-      <img id="character-image" src="キャラ.png" alt="表示できません" class="roadmap-img">
+      <img id="character-image" src="キャラ.PNG" alt="表示できません" class="roadmap-img">
     </div>
 
     <button id="start-button" type="button" onclick="startSystem()">Tap to Start</button>
@@ -342,14 +342,14 @@
       if (isRunning) return;
       isRunning = true;
 
+      // 👇 【修正ポイント】iPhoneの音声ブロックを解除するため、awaitで待つ前に一番最初に実行！
+      speakAlert("");
+
       const warningBox = document.getElementById("warning-message");
 
       try {
         await requestMotionPermission();
         startGPS();
-
-        // iPhoneなどで音声読み上げを有効化するための空読み上げ
-        speakAlert("");
 
         document.getElementById("title-container").style.display = "none";
         document.getElementById("image-container").style.display = "none";
@@ -413,7 +413,6 @@
         (position) => {
           currentSpeed = position.coords.speed;
 
-          // ブラウザによって speed が null の場合がある
           if (currentSpeed === null || Number.isNaN(currentSpeed)) {
             document.getElementById("val-speed").innerText = "--";
           } else {
@@ -447,8 +446,6 @@
 
       const accelerationLooksStopped = currentAcceleration < THRESHOLD_ACCELERATION;
 
-      // GPSが取得できない端末もあるため、
-      // GPS速度がある場合はGPSも使い、ない場合は加速度だけで判定する
       const gpsLooksStopped =
         currentSpeed === null ||
         Number.isNaN(currentSpeed) ||
@@ -473,7 +470,6 @@
 
       webcam.update();
 
-      // 毎フレームAI判定するとスマホが重くなりやすいので、少し間隔をあける
       if (timestamp - lastPredictTime >= PREDICT_INTERVAL_MS) {
         lastPredictTime = timestamp;
         await predict();
@@ -509,7 +505,6 @@
 
       document.getElementById("val-ai").innerText = stopProb.toFixed(2);
 
-      // パターン1：標識を発見した瞬間
       if (stopProb > THRESHOLD_AI && isSignVisible === false) {
         isSignVisible = true;
         hasStopped = false;
@@ -525,13 +520,11 @@
         return;
       }
 
-      // 標識が見えている間
       if (stopProb > THRESHOLD_LOST_AI && isSignVisible === true) {
         lostCount = 0;
         return;
       }
 
-      // パターン2：標識を何フレームか連続で見失ったら「通過」と判断
       if (stopProb < THRESHOLD_LOST_AI && isSignVisible === true) {
         lostCount++;
 
