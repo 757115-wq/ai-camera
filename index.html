@@ -86,7 +86,7 @@
     }
     #sensor-data div { color: #fff; font-size: 13px; }
 
-    /* 🚥 【修正ポイント】警告ボックスの文字サイズと余白をスマホ用に最適化 */
+    /* 警告ボックスの文字サイズと余白をスマホ用に最適化 */
     #warning-message {
       display: none; 
       font-size: 28px;           /* 45pxから28pxに縮小し、はみ出しを防止 */
@@ -133,7 +133,7 @@
     </div>
 
     <div id="image-container">
-      <img id="character-image" src="キャラ.png" alt="表示できません" class="roadmap-img">
+      <img id="character-image" src="キャラ.PNG" alt="表示できません" class="roadmap-img">
     </div>
 
     <button id="start-button" type="button" onclick="startSystem()">Tap to Start</button>
@@ -175,7 +175,7 @@
     updateDateTime();
     setInterval(updateDateTime, 1000);
 
-    const URL = "https://teachablemachine.withgoogle.com/models/bu2j8dFnw/"; 
+    const URL = "https://teachablemachine.withgoogle.com/models/kFcsY2pFR/"; 
     const THRESHOLD_AI = 0.85;    
     const THRESHOLD_SPEED = 0.5;  
 
