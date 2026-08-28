@@ -177,17 +177,17 @@
     updateDateTime();
     setInterval(updateDateTime, 1000);
 
-    const URL = "https://teachablemachine.withgoogle.com/models/kFcsY2pFR/";
+    const URL = "https://teachablemachine.withgoogle.com/models/xo9MmI2xz/";
 
     // ===== 認識設定 =====
     // 実走行ではAI確率が上下するため、85%固定から65%へ下げています。
-    const THRESHOLD_AI = 0.88;
+    const THRESHOLD_AI = 0.80;
     // この値を下回る状態が連続したときに「標識を通過した」と判断します。
-    const THRESHOLD_AI_LOST = 0.60;
+    const THRESHOLD_AI_LOST = 0.45;
     // 88%以上を6回連続で認識したら「止まれ」を確定します。
-    const SIGN_CONFIRM_FRAMES = 6;
+    const SIGN_CONFIRM_FRAMES = 3;
     // 60%未満を10回連続で認識したら標識が画面から消えたと判断します。
-    const SIGN_LOST_FRAMES = 10;
+    const SIGN_LOST_FRAMES = 6;
     // 加速度が小さい状態が500ms続いたら停止と判定します。
     const STOP_CONFIRM_MS = 500;
     const THRESHOLD_ACCEL = 0.50;
@@ -316,7 +316,7 @@
             }
 
             // Teachable Machineのクラス名「止まれ」を直接検索
-            if (className.includes("止まれ")) {
+            if (className.trim() === "止まれ") {
                 stopProb = probability;
             }
         }
@@ -327,20 +327,20 @@
         const warningBox = document.getElementById("warning-message");
 
         // ===== 1. 「止まれ」の連続認識 =====
-        if (stopProb >= THRESHOLD_AI) {
+        if (bestClass.trim() === "止まれ" && stopProb >= THRESHOLD_AI) {
             signConfirmCount++;
             signLostCount = 0;
         } else if (stopProb < THRESHOLD_AI_LOST) {
             signLostCount++;
             signConfirmCount = 0;
         } else {
-            // 0.60～0.88の間では状態を維持する
+            // 0.45～0.80の間では状態を維持する
             signLostCount = 0;
         }
 
         document.getElementById("val-confirm").innerText = signConfirmCount;
 
-        // 65%以上を4回連続で認識したら検知
+        // 80%以上を3回連続で認識したら検知
         if (!isSignVisible && signConfirmCount >= SIGN_CONFIRM_FRAMES) {
             isSignVisible = true;
             hasStopped = false;
