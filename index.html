@@ -86,7 +86,7 @@
     }
     #sensor-data div { color: #fff; font-size: 13px; }
 
-    /* 警告ボックスの文字サイズと余白をスマホ用に最適化 */
+    /* 🚥 【修正ポイント】警告ボックスの文字サイズと余白をスマホ用に最適化 */
     #warning-message {
       display: none; 
       font-size: 28px;           /* 45pxから28pxに縮小し、はみ出しを防止 */
@@ -121,8 +121,6 @@
     <div>止まれ確率: <span id="val-ai" style="color:#4DA6FF;">0.00</span></div>
     <div>標識検知: <span id="flag-visible" style="color:#FF6B6B;">false</span></div>
     <div>停止確認: <span id="flag-stopped" style="color:#2ECC71;">false</span></div>
-    <div>連続認識: <span id="val-confirm" style="color:#FAD02E;">0</span></div>
-    <div>AI判定: <span id="val-class" style="color:#FFFFFF;">---</span></div>
   </div>
 
   <div class="main-container">
@@ -177,29 +175,13 @@
     updateDateTime();
     setInterval(updateDateTime, 1000);
 
-    const URL = "https://teachablemachine.withgoogle.com/models/xo9MmI2xz/";
+    const URL = "https://teachablemachine.withgoogle.com/models/7QiBUJTOw/"; 
+    const THRESHOLD_AI = 0.85;    
+    const THRESHOLD_SPEED = 0.5;  
 
-    // ===== 認識設定 =====
-    // 実走行ではAI確率が上下するため、85%固定から65%へ下げています。
-    const THRESHOLD_AI = 0.80;
-    // この値を下回る状態が連続したときに「標識を通過した」と判断します。
-    const THRESHOLD_AI_LOST = 0.45;
-    // 88%以上を6回連続で認識したら「止まれ」を確定します。
-    const SIGN_CONFIRM_FRAMES = 3;
-    // 60%未満を10回連続で認識したら標識が画面から消えたと判断します。
-    const SIGN_LOST_FRAMES = 6;
-    // 加速度が小さい状態が500ms続いたら停止と判定します。
-    const STOP_CONFIRM_MS = 500;
-    const THRESHOLD_ACCEL = 0.50;
-
-    let isSignVisible = false;
-    let hasStopped = false;
-    let currentAcceleration = 0;
-    let signConfirmCount = 0;
-    let signLostCount = 0;
-    let stopStartTime = null;
-    let resultTimer = null;
-    let systemStarted = false;
+    let isSignVisible = false;      
+    let hasStopped = false;         
+    let currentAcceleration = 0;   
 
     let model, webcam, maxPredictions;
 
@@ -208,77 +190,63 @@
     }
 
     async function startSystem() {
-        if (systemStarted) return;
-
-        try {
-            if (typeof DeviceMotionEvent.requestPermission === 'function') {
+        if (typeof DeviceMotionEvent.requestPermission === 'function') {
+            try {
                 const permissionState = await DeviceMotionEvent.requestPermission();
-                if (permissionState !== 'granted') {
-                    alert("モーションセンサーの許可が必要です！");
+                if (permissionState === 'granted') {
+                    window.addEventListener('devicemotion', handleMotion);
+                } else {
+                    alert("センサーの許可が必要です！");
                     return;
                 }
+            } catch (error) {
+                console.error(error);
             }
+        } else {
             window.addEventListener('devicemotion', handleMotion);
-
-            if (window.speechSynthesis) {
-                const uttr = new SpeechSynthesisUtterance("");
-                window.speechSynthesis.speak(uttr);
-            }
-
-            document.getElementById("title-container").style.display = "none";
-            document.getElementById("image-container").style.display = "none";
-            document.getElementById("start-button").style.display = "none";
-            document.getElementById("help-button").style.display = "none";
-            document.getElementById("sensor-data").style.display = "block";
-
-            const warningBox = document.getElementById("warning-message");
-            warningBox.style.display = "block";
-            warningBox.innerText = "AI起動中...";
-
-            const modelURL = URL + "model.json";
-            const metadataURL = URL + "metadata.json";
-            model = await tmImage.load(modelURL, metadataURL);
-            maxPredictions = model.getTotalClasses();
-
-            const flip = false;
-            webcam = new tmImage.Webcam(500, 500, flip);
-            await webcam.setup({ facingMode: "environment" });
-            await webcam.play();
-            document.getElementById("webcam-container").appendChild(webcam.canvas);
-
-            systemStarted = true;
-            warningBox.innerText = "監視中\n（安全運転で！）";
-            warningBox.style.backgroundImage = "linear-gradient(135deg, #555 0%, #333 100%)";
-            window.requestAnimationFrame(loop);
-        } catch (error) {
-            console.error("システム起動エラー:", error);
-            alert("システムを起動できませんでした。\nカメラ・センサーの許可と、インターネット接続を確認してください。");
         }
+
+        let uttr = new SpeechSynthesisUtterance("");
+        window.speechSynthesis.speak(uttr);
+
+        document.getElementById("title-container").style.display = "none";
+        document.getElementById("image-container").style.display = "none";
+        document.getElementById("start-button").style.display = "none";
+        document.getElementById("help-button").style.display = "none";
+        document.getElementById("sensor-data").style.display = "block"; 
+
+        const warningBox = document.getElementById("warning-message");
+        warningBox.style.display = "block";
+        warningBox.innerText = "AI起動中...";
+
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+
+        const flip = false; 
+        webcam = new tmImage.Webcam(500, 500, flip); 
+        await webcam.setup({ facingMode: "environment" }); 
+        await webcam.play();
+        window.requestAnimationFrame(loop);
+
+        document.getElementById("webcam-container").appendChild(webcam.canvas);
+        
+        warningBox.innerText = "監視中\n（安全運転で！）";
+        warningBox.style.backgroundImage = "linear-gradient(135deg, #555 0%, #333 100%)";
     }
 
     function handleMotion(event) {
-        const acc = event.acceleration || {};
-        const accX = Number(acc.x) || 0;
-        const accY = Number(acc.y) || 0;
-        const accZ = Number(acc.z) || 0;
-
+        let accX = event.acceleration.x || 0;
+        let accY = event.acceleration.y || 0;
+        let accZ = event.acceleration.z || 0;
+        
         currentAcceleration = Math.abs(accX) + Math.abs(accY) + Math.abs(accZ);
         document.getElementById("val-acc").innerText = currentAcceleration.toFixed(2);
 
-        // 「止まれ」検知中だけ停止確認を行います。
-        if (isSignVisible && !hasStopped) {
-            if (currentAcceleration < THRESHOLD_ACCEL) {
-                if (stopStartTime === null) stopStartTime = Date.now();
-
-                if (Date.now() - stopStartTime >= STOP_CONFIRM_MS) {
-                    hasStopped = true;
-                    document.getElementById("flag-stopped").innerText = "true (停止確認！)";
-                }
-            } else {
-                stopStartTime = null;
-            }
-        } else if (!isSignVisible) {
-            stopStartTime = null;
+        if (isSignVisible === true && currentAcceleration < THRESHOLD_SPEED) {
+            hasStopped = true;
+            document.getElementById("flag-stopped").innerText = "true (停止確認！)";
         }
     }
 
@@ -298,95 +266,66 @@
     }
 
     async function predict() {
-        if (!model || !webcam) return;
-
         const prediction = await model.predict(webcam.canvas);
-
+        
         let stopProb = 0;
-        let bestClass = "---";
-        let bestProb = 0;
-
         for (let i = 0; i < maxPredictions; i++) {
-            const className = String(prediction[i].className || "");
-            const probability = Number(prediction[i].probability) || 0;
-
-            if (probability > bestProb) {
-                bestProb = probability;
-                bestClass = className;
-            }
-
-            // Teachable Machineのクラス名「止まれ」を直接検索
-            if (className.trim() === "止まれ") {
-                stopProb = probability;
+            // 文字が含まれているか調べる「includes」に変えて、「Class 1」にも対応させます！
+            if (prediction[i].className.includes("止まれ") || prediction[i].className.includes("Class 1")) {
+                stopProb = prediction[i].probability;
             }
         }
-
         document.getElementById("val-ai").innerText = stopProb.toFixed(2);
-        document.getElementById("val-class").innerText = `${bestClass} (${(bestProb * 100).toFixed(0)}%)`;
 
         const warningBox = document.getElementById("warning-message");
 
-        // ===== 1. 「止まれ」の連続認識 =====
-        if (bestClass.trim() === "止まれ" && stopProb >= THRESHOLD_AI) {
-            signConfirmCount++;
-            signLostCount = 0;
-        } else if (stopProb < THRESHOLD_AI_LOST) {
-            signLostCount++;
-            signConfirmCount = 0;
-        } else {
-            // 0.45～0.80の間では状態を維持する
-            signLostCount = 0;
-        }
-
-        document.getElementById("val-confirm").innerText = signConfirmCount;
-
-        // 80%以上を3回連続で認識したら検知
-        if (!isSignVisible && signConfirmCount >= SIGN_CONFIRM_FRAMES) {
+        // パターン1：標識を「発見した瞬間」！
+        if (stopProb > THRESHOLD_AI && isSignVisible === false) {
             isSignVisible = true;
-            hasStopped = false;
-            stopStartTime = null;
-            signLostCount = 0;
-
+            hasStopped = false; 
+            
             document.getElementById("flag-visible").innerText = "true";
             document.getElementById("flag-stopped").innerText = "false";
-
-            document.body.style.backgroundColor = "#ffe6cc";
+            
+            document.body.style.backgroundColor = "#ffe6cc"; 
             warningBox.innerText = "前方注意！\n一時停止あり";
             warningBox.style.backgroundImage = "linear-gradient(135deg, #FF9500 0%, #FF5E00 100%)";
             warningBox.style.boxShadow = "0 15px 35px rgba(255, 149, 0, 0.4)";
+            
             speakAlert("前方に、一時停止があります。");
         }
-
-        // ===== 2. 標識を通過したか判定 =====
-        if (isSignVisible && signLostCount >= SIGN_LOST_FRAMES) {
+        
+        // パターン2：標識を「通り過ぎた瞬間」！
+        else if (stopProb < (THRESHOLD_AI - 0.2) && isSignVisible === true) {
             isSignVisible = false;
-            signConfirmCount = 0;
-            signLostCount = 0;
-            stopStartTime = null;
             document.getElementById("flag-visible").innerText = "false";
-
-            if (!hasStopped) {
-                document.body.style.backgroundColor = "#ffcccc";
+            
+            if (hasStopped === false) {
+                // ❌ 一時不停止
+                document.body.style.backgroundColor = "#ffcccc"; 
                 warningBox.innerText = "一時不停止です！！\n危険！";
                 warningBox.style.backgroundImage = "linear-gradient(135deg, #FF6B6B 0%, #FF3B30 100%)";
                 warningBox.style.boxShadow = "0 15px 35px rgba(255, 59, 48, 0.5)";
+                
                 speakAlert("危険です。一時不停止を検知しました。");
             } else {
-                document.body.style.backgroundColor = "#e6ffed";
+                // ⭕ ちゃんと止まった
+                document.body.style.backgroundColor = "#e6ffed"; 
                 warningBox.innerText = "安全確認ヨシ！\n合格✨";
                 warningBox.style.backgroundImage = "linear-gradient(135deg, #2ECC71 0%, #27AE60 100%)";
                 warningBox.style.boxShadow = "0 15px 35px rgba(46, 204, 113, 0.5)";
+                
                 speakAlert("停止確認。安全運転ありがとうございます。");
             }
 
-            clearTimeout(resultTimer);
-            resultTimer = setTimeout(() => {
-                document.body.style.backgroundColor = "#f7f9fa";
-                warningBox.innerText = "監視中\n（安全運転で！）";
-                warningBox.style.backgroundImage = "linear-gradient(135deg, #555 0%, #333 100%)";
-                warningBox.style.boxShadow = "0 15px 35px rgba(0, 0, 0, 0.2)";
-                document.getElementById("flag-stopped").innerText = "false";
-            }, 3500);
+            setTimeout(() => {
+                if (isSignVisible === false) {
+                    document.body.style.backgroundColor = "#f7f9fa"; 
+                    warningBox.innerText = "監視中\n（安全運転で！）";
+                    warningBox.style.backgroundImage = "linear-gradient(135deg, #555 0%, #333 100%)";
+                    warningBox.style.boxShadow = "0 15px 35px rgba(0, 0, 0, 0.2)";
+                }
+            }, 3500); 
         }
     }
 </script>
