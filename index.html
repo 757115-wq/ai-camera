@@ -76,7 +76,14 @@
     #start-button:active { transform: translateY(3px); box-shadow: 0 5px 10px rgba(0, 0, 0, 0.15), inset 0 1px 3px rgba(255, 255, 255, 0.4); }
 
     #webcam-container { display: flex; justify-content: center; align-items: center; min-height: 50vh; position: relative; margin-top: 20px; }
-    #webcam-container video { max-width: 90%; height: auto; border-radius: 15px; border: 4px solid #333; }
+    #webcam-container canvas {
+    display: block;
+    width: min(90vw, 500px);
+    max-width: 100%;
+    height: auto;
+    border-radius: 15px;
+    border: 4px solid #333;
+}
 
     #sensor-data {
       position: fixed; top: 15px; right: 15px; font-size: 13px; color: #fff;
@@ -135,7 +142,7 @@
     </div>
 
     <div id="image-container">
-      <img id="character-image" src="キャラ.png" alt="表示できません" class="roadmap-img">
+      <img id="character-image" src="キャラ.PNG" alt="表示できません" class="roadmap-img">
     </div>
 
     <button id="start-button" type="button" onclick="startSystem()">Tap to Start</button>
@@ -256,31 +263,64 @@
         }
     }
 
-    function handleMotion(event) {
-        const acc = event.acceleration || {};
-        const accX = Number(acc.x) || 0;
-        const accY = Number(acc.y) || 0;
-        const accZ = Number(acc.z) || 0;
+ 
+function handleMotion(event) {
+    const acc = event.acceleration;
 
-        currentAcceleration = Math.abs(accX) + Math.abs(accY) + Math.abs(accZ);
-        document.getElementById("val-acc").innerText = currentAcceleration.toFixed(2);
+    // センサーが正しい値を返しているか確認
+    if (
+        !acc ||
+        !Number.isFinite(acc.x) ||
+        !Number.isFinite(acc.y) ||
+        !Number.isFinite(acc.z)
+    ) {
+        document.getElementById("val-acc").innerText =
+            "取得不可";
+        stopStartTime = null;
+        return;
+    }
 
-        // 「止まれ」検知中だけ停止確認を行います。
-        if (isSignVisible && !hasStopped) {
-            if (currentAcceleration < THRESHOLD_ACCEL) {
-                if (stopStartTime === null) stopStartTime = Date.now();
+    const accX = acc.x;
+    const accY = acc.y;
+    const accZ = acc.z;
 
-                if (Date.now() - stopStartTime >= STOP_CONFIRM_MS) {
-                    hasStopped = true;
-                    document.getElementById("flag-stopped").innerText = "true (停止確認！)";
-                }
-            } else {
-                stopStartTime = null;
+    currentAcceleration =
+        Math.abs(accX) +
+        Math.abs(accY) +
+        Math.abs(accZ);
+
+    document.getElementById("val-acc").innerText =
+        currentAcceleration.toFixed(2);
+
+    // 加速度による「低加速度状態」の確認
+    if (isSignVisible && !hasStopped) {
+
+        if (currentAcceleration < THRESHOLD_ACCEL) {
+
+            if (stopStartTime === null) {
+                stopStartTime = Date.now();
             }
-        } else if (!isSignVisible) {
+
+            if (
+                Date.now() - stopStartTime >= STOP_CONFIRM_MS
+            ) {
+                hasStopped = true;
+
+                document.getElementById(
+                    "flag-stopped"
+                ).innerText =
+                    "低加速度を確認";
+            }
+
+        } else {
             stopStartTime = null;
         }
+
+    } else if (!isSignVisible) {
+        stopStartTime = null;
     }
+}
+
 
     async function loop() {
         webcam.update();
